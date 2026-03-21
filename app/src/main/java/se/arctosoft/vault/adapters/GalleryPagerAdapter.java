@@ -402,13 +402,19 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
         if (previousButton != null) {
             previousButton.setEnabled(previousVideoPos >= 0);
             previousButton.setAlpha(previousVideoPos >= 0 ? 1f : 0.4f);
-            previousButton.setOnClickListener(v -> navigateToVideo(previousVideoPos, true));
+            previousButton.setOnClickListener(v -> {
+                int currentPos = holder.getBindingAdapterPosition();
+                navigateToVideo(getPreviousVideoPosition(currentPos), true);
+            });
         }
         View nextButton = holder.binding.playerView.findViewById(androidx.media3.ui.R.id.exo_next);
         if (nextButton != null) {
             nextButton.setEnabled(nextVideoPos >= 0);
             nextButton.setAlpha(nextVideoPos >= 0 ? 1f : 0.4f);
-            nextButton.setOnClickListener(v -> navigateToVideo(nextVideoPos, true));
+            nextButton.setOnClickListener(v -> {
+                int currentPos = holder.getBindingAdapterPosition();
+                navigateToVideo(getNextVideoPosition(currentPos), true);
+            });
         }
     }
 
