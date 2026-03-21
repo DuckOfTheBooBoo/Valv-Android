@@ -9,6 +9,8 @@ import java.nio.file.Paths;
 import static org.junit.Assert.assertTrue;
 
 public class DecoderFallbackTest {
+    private static final int MAX_PARENT_SEARCH_DEPTH = 4;
+
     @Test
     public void galleryPagerEnablesDecoderFallback() throws Exception {
         Path projectRoot = findProjectRoot();
@@ -22,7 +24,7 @@ public class DecoderFallbackTest {
 
     private static Path findProjectRoot() {
         Path current = Paths.get("").toAbsolutePath();
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < MAX_PARENT_SEARCH_DEPTH; i++) {
             if (Files.exists(current.resolve("app/src/main/java/se/arctosoft/vault/adapters/GalleryPagerAdapter.java"))) {
                 return current;
             }
