@@ -324,17 +324,17 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
                 .apply(GlideStuff.getRequestOptions(useDiskCache))
                 .into(holder.binding.imgThumb);
         holder.parentBinding.imgFullscreen.setVisibility(isFullscreen ? View.GONE : View.VISIBLE);
-        holder.binding.rLPlay.setOnClickListener(v -> {
-            holder.binding.rLPlay.setVisibility(View.GONE);
-            holder.binding.playerView.setVisibility(View.VISIBLE);
-            playVideo(context, galleryFile.getUri(), holder, galleryFile.getVersion());
-        });
+        holder.binding.rLPlay.setOnClickListener(v -> startVideoPlayback(context, galleryFile, holder));
         if (holder.getBindingAdapterPosition() == pendingAutoplayPosition) {
             pendingAutoplayPosition = -1;
-            holder.binding.rLPlay.setVisibility(View.GONE);
-            holder.binding.playerView.setVisibility(View.VISIBLE);
-            playVideo(context, galleryFile.getUri(), holder, galleryFile.getVersion());
+            startVideoPlayback(context, galleryFile, holder);
         }
+    }
+
+    private void startVideoPlayback(@NonNull FragmentActivity context, @NonNull GalleryFile galleryFile, @NonNull GalleryPagerViewHolder.GalleryPagerVideoViewHolder holder) {
+        holder.binding.rLPlay.setVisibility(View.GONE);
+        holder.binding.playerView.setVisibility(View.VISIBLE);
+        playVideo(context, galleryFile.getUri(), holder, galleryFile.getVersion());
     }
 
     @OptIn(markerClass = UnstableApi.class)
@@ -384,7 +384,7 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
             @Override
             public void onPlaybackStateChanged(int playbackState) {
                 Player.Listener.super.onPlaybackStateChanged(playbackState);
-                if (playbackState == Player.STATE_ENDED) {
+                if (playbackState == Player.STATE_ENDED && nextVideoPos >= 0) {
                     navigateToVideo(nextVideoPos, true);
                 }
             }
@@ -402,21 +402,13 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
         if (previousButton != null) {
             previousButton.setEnabled(previousVideoPos >= 0);
             previousButton.setAlpha(previousVideoPos >= 0 ? 1f : 0.4f);
-            previousButton.setOnClickListener(v -> {
-                if (previousVideoPos >= 0) {
-                    navigateToVideo(previousVideoPos, true);
-                }
-            });
+            previousButton.setOnClickListener(v -> navigateToVideo(previousVideoPos, true));
         }
         View nextButton = holder.binding.playerView.findViewById(androidx.media3.ui.R.id.exo_next);
         if (nextButton != null) {
             nextButton.setEnabled(nextVideoPos >= 0);
             nextButton.setAlpha(nextVideoPos >= 0 ? 1f : 0.4f);
-            nextButton.setOnClickListener(v -> {
-                if (nextVideoPos >= 0) {
-                    navigateToVideo(nextVideoPos, true);
-                }
-            });
+            nextButton.setOnClickListener(v -> navigateToVideo(nextVideoPos, true));
         }
     }
 
