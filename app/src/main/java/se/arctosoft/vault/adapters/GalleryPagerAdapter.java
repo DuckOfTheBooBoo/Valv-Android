@@ -364,11 +364,11 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
         player.setMediaItem(mediaItem);
         setupVideoControllerNavigation(holder, previousVideoPos, nextVideoPos);
         holder.binding.playerView.setControllerShowTimeoutMs(1500);
-        Player.Listener listener = playerListeners.remove(pos);
-        if (listener != null) {
-            player.removeListener(listener);
+        Player.Listener previousListener = playerListeners.get(pos);
+        if (previousListener != null) {
+            player.removeListener(previousListener);
         }
-        listener = new Player.Listener() {
+        Player.Listener listener = new Player.Listener() {
             @Override
             public void onIsPlayingChanged(boolean isPlaying) {
                 Player.Listener.super.onIsPlayingChanged(isPlaying);
@@ -385,7 +385,7 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
             public void onPlaybackStateChanged(int playbackState) {
                 Player.Listener.super.onPlaybackStateChanged(playbackState);
                 if (playbackState == Player.STATE_ENDED) {
-                    navigateToVideo(getNextVideoPosition(pos), true);
+                    navigateToVideo(nextVideoPos, true);
                 }
             }
         };
