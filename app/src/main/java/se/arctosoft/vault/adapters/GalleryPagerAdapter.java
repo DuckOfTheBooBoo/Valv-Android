@@ -107,8 +107,11 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
     private final boolean isAllFolder, useDiskCache;
     private final String nestedPath;
     private final Map<Integer, ExoPlayer> players;
+    private final Map<Integer, Player.Listener> playerListeners;
     private final Password password;
+    private final IOnVideoNavigationRequested onVideoNavigationRequested;
     private boolean isFullscreen;
+    private int pendingAutoplayPosition = -1;
 
     private final View.OnAttachStateChangeListener onAttachStateChangeListener = new View.OnAttachStateChangeListener() {
         @Override
@@ -121,7 +124,7 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
         }
     };
 
-    public GalleryPagerAdapter(FragmentActivity context, @NonNull List<GalleryFile> galleryFiles, IOnFileDeleted onFileDeleted, DocumentFile currentDirectory, boolean isAllFolder, String nestedPath, GalleryViewModel galleryViewModel) {
+    public GalleryPagerAdapter(FragmentActivity context, @NonNull List<GalleryFile> galleryFiles, IOnFileDeleted onFileDeleted, DocumentFile currentDirectory, boolean isAllFolder, String nestedPath, GalleryViewModel galleryViewModel, IOnVideoNavigationRequested onVideoNavigationRequested) {
         this.weakReference = new WeakReference<>(context);
         this.galleryFiles = galleryFiles;
         this.onFileDeleted = onFileDeleted;
@@ -131,8 +134,10 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
         this.isAllFolder = isAllFolder;
         this.nestedPath = nestedPath;
         this.players = new HashMap<>();
+        this.playerListeners = new HashMap<>();
         this.password = Password.getInstance();
         this.useDiskCache = Settings.getInstance(context).useDiskCache();
+        this.onVideoNavigationRequested = onVideoNavigationRequested;
     }
 
     @NonNull
@@ -324,12 +329,20 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
             holder.binding.playerView.setVisibility(View.VISIBLE);
             playVideo(context, galleryFile.getUri(), holder, galleryFile.getVersion());
         });
+        if (holder.getBindingAdapterPosition() == pendingAutoplayPosition) {
+            pendingAutoplayPosition = -1;
+            holder.binding.rLPlay.setVisibility(View.GONE);
+            holder.binding.playerView.setVisibility(View.VISIBLE);
+            playVideo(context, galleryFile.getUri(), holder, galleryFile.getVersion());
+        }
     }
 
     @OptIn(markerClass = UnstableApi.class)
     private void playVideo(FragmentActivity context, Uri fileUri, GalleryPagerViewHolder.GalleryPagerVideoViewHolder holder, int version) {
         final int pos = holder.getBindingAdapterPosition();
         ExoPlayer player = players.get(pos);
+        final int previousVideoPos = getPreviousVideoPosition(pos);
+        final int nextVideoPos = getNextVideoPosition(pos);
         for (ExoPlayer player1 : players.values()) {
             if (player1 != player && player1 != null) {
                 player1.pause();
@@ -341,7 +354,7 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
             player = new ExoPlayer.Builder(context)
                     .setMediaSourceFactory(progressiveFactory)
                     .build();
-            player.setRepeatMode(Player.REPEAT_MODE_ONE);
+            player.setRepeatMode(Player.REPEAT_MODE_OFF);
             players.put(pos, player);
         }
         MediaItem mediaItem = new MediaItem.Builder()
@@ -349,8 +362,13 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
                 .setUri(fileUri)
                 .build();
         player.setMediaItem(mediaItem);
+        setupVideoControllerNavigation(holder, previousVideoPos, nextVideoPos);
         holder.binding.playerView.setControllerShowTimeoutMs(1500);
-        player.addListener(new Player.Listener() {
+        Player.Listener listener = playerListeners.remove(pos);
+        if (listener != null) {
+            player.removeListener(listener);
+        }
+        listener = new Player.Listener() {
             @Override
             public void onIsPlayingChanged(boolean isPlaying) {
                 Player.Listener.super.onIsPlayingChanged(isPlaying);
@@ -362,11 +380,73 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
                 Player.Listener.super.onPlayerError(error);
                 Toaster.getInstance(context).showLong(context.getString(R.string.gallery_video_error, error.getMessage()));
             }
-        });
+
+            @Override
+            public void onPlaybackStateChanged(int playbackState) {
+                Player.Listener.super.onPlaybackStateChanged(playbackState);
+                if (playbackState == Player.STATE_ENDED) {
+                    navigateToVideo(getNextVideoPosition(pos), true);
+                }
+            }
+        };
+        player.addListener(listener);
+        playerListeners.put(pos, listener);
         holder.binding.playerView.setPlayer(player);
         player.prepare();
         player.setPlayWhenReady(true);
         holder.binding.playerView.hideController();
+    }
+
+    private void setupVideoControllerNavigation(@NonNull GalleryPagerViewHolder.GalleryPagerVideoViewHolder holder, int previousVideoPos, int nextVideoPos) {
+        View previousButton = holder.binding.playerView.findViewById(androidx.media3.ui.R.id.exo_prev);
+        if (previousButton != null) {
+            previousButton.setEnabled(previousVideoPos >= 0);
+            previousButton.setAlpha(previousVideoPos >= 0 ? 1f : 0.4f);
+            previousButton.setOnClickListener(v -> {
+                if (previousVideoPos >= 0) {
+                    navigateToVideo(previousVideoPos, true);
+                }
+            });
+        }
+        View nextButton = holder.binding.playerView.findViewById(androidx.media3.ui.R.id.exo_next);
+        if (nextButton != null) {
+            nextButton.setEnabled(nextVideoPos >= 0);
+            nextButton.setAlpha(nextVideoPos >= 0 ? 1f : 0.4f);
+            nextButton.setOnClickListener(v -> {
+                if (nextVideoPos >= 0) {
+                    navigateToVideo(nextVideoPos, true);
+                }
+            });
+        }
+    }
+
+    private int getNextVideoPosition(int currentPos) {
+        for (int i = currentPos + 1; i < galleryFiles.size(); i++) {
+            if (galleryFiles.get(i).isVideo()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private int getPreviousVideoPosition(int currentPos) {
+        for (int i = currentPos - 1; i >= 0; i--) {
+            if (galleryFiles.get(i).isVideo()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private void navigateToVideo(int position, boolean autoplay) {
+        if (position >= 0 && position < galleryFiles.size() && onVideoNavigationRequested != null) {
+            pendingAutoplayPosition = autoplay ? position : -1;
+            onVideoNavigationRequested.onNavigate(position);
+        }
+    }
+
+    public interface IOnVideoNavigationRequested {
+        void onNavigate(int position);
     }
 
     private void setupImageView(GalleryPagerViewHolder holder, FragmentActivity context, GalleryFile galleryFile) {
@@ -750,6 +830,10 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
         if (pos >= 0) {
             ExoPlayer player = players.remove(pos);
             if (player != null) {
+                Player.Listener listener = playerListeners.remove(pos);
+                if (listener != null) {
+                    player.removeListener(listener);
+                }
                 player.release();
             }
         }
@@ -771,12 +855,18 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
     }
 
     public void releasePlayers() {
-        for (Player p : players.values()) {
-            if (p != null) {
-                p.release();
+        for (Map.Entry<Integer, ExoPlayer> entry : players.entrySet()) {
+            ExoPlayer player = entry.getValue();
+            if (player != null) {
+                Player.Listener listener = playerListeners.remove(entry.getKey());
+                if (listener != null) {
+                    player.removeListener(listener);
+                }
+                player.release();
             }
         }
         players.clear();
+        playerListeners.clear();
     }
 
     public void pausePlayers() {
