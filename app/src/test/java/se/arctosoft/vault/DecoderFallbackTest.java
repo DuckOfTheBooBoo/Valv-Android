@@ -10,7 +10,7 @@ import static org.junit.Assert.assertTrue;
 
 public class DecoderFallbackTest {
     @Test
-    public void galleryPlayerEnablesDecoderFallback() throws Exception {
+    public void galleryPagerEnablesDecoderFallback() throws Exception {
         Path projectRoot = findProjectRoot();
         Path adapterPath = projectRoot.resolve("app/src/main/java/se/arctosoft/vault/adapters/GalleryPagerAdapter.java");
         assertTrue(Files.exists(adapterPath));
