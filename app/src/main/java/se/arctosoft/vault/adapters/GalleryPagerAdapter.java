@@ -49,6 +49,7 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.navigation.Navigation;
@@ -338,7 +339,10 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
         if (player == null) {
             DataSource.Factory dataSourceFactory = new MyDataSourceFactory(context, version, password);
             ProgressiveMediaSource.Factory progressiveFactory = new ProgressiveMediaSource.Factory(dataSourceFactory);
+            DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(context)
+                    .setEnableDecoderFallback(true);
             player = new ExoPlayer.Builder(context)
+                    .setRenderersFactory(renderersFactory)
                     .setMediaSourceFactory(progressiveFactory)
                     .build();
             player.setRepeatMode(Player.REPEAT_MODE_ONE);
