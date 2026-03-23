@@ -10,8 +10,8 @@
         android:layout_height="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:show_previous_button="false"
-        app:show_next_button="false"
+        app:show_previous_button="true"
+        app:show_next_button="true"
         app:show_buffering="always" />
 
     <RelativeLayout

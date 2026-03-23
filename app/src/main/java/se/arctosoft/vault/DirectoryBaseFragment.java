@@ -368,7 +368,7 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
 
     void setupViewpager() {
         galleryPagerAdapter = new GalleryPagerAdapter(requireActivity(), galleryViewModel.getGalleryFiles(), pos -> galleryGridAdapter.notifyItemRemoved(pos), galleryViewModel.getCurrentDocumentDirectory(),
-                galleryViewModel.isAllFolder(), galleryViewModel.getNestedPath(), galleryViewModel);
+                galleryViewModel.isAllFolder(), galleryViewModel.getNestedPath(), galleryViewModel, pos -> binding.viewPager.setCurrentItem(pos, true));
         binding.viewPager.setAdapter(galleryPagerAdapter);
         //Log.e(TAG, "setupViewpager: " + viewModel.getCurrentPosition() + " " + viewModel.isFullscreen());
         binding.viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
