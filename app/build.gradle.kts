@@ -79,8 +79,7 @@ dependencies {
     implementation(libs.biometrics)
 
     implementation(libs.security.crypto)
-    implementation(libs.media3.exoplayer)
-    implementation(libs.media3.ui)
+    implementation(libs.libmpv)
     implementation(libs.preferences)
     annotationProcessor(libs.glide.annotation)
 

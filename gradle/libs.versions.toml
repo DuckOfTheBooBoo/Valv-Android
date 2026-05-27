@@ -12,8 +12,7 @@ preferences = "1.2.1"
 activity = "1.10.1"
 crypto = "1.0.0"
 aboutLibraries = "12.2.4"
-exoplayer = "1.7.1"
-ui = "1.7.1"
+libmpv = "0.4.1"
 glide = "4.16.0"
 preference = "1.2.1"
 kotlin = "2.2.0"
@@ -34,8 +33,7 @@ activity = { group = "androidx.activity", name = "activity", version.ref = "acti
 biometrics = { group = "androidx.biometric", name = "biometric", version.ref = "biometrics" }
 
 security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "crypto" }
-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "exoplayer" }
-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "ui" }
+libmpv = { group = "dev.jdtech.mpv", name = "libmpv", version.ref = "libmpv" }
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
 glide-annotation = { group = "com.github.bumptech.glide", name = "compiler", version.ref = "glide" }
 
