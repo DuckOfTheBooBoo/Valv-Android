@@ -858,7 +858,8 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
         if (uri != null && uri.getPath() != null) {
             boolean deleted = new File(uri.getPath()).delete();
             if (!deleted) {
-                Log.w(TAG, "cleanupTemporaryCache: failed to delete " + uri);
+                String fileName = uri.getLastPathSegment();
+                Log.w(TAG, "cleanupTemporaryCache: failed to delete temporary cache" + (fileName == null ? "" : " (" + fileName + ")"));
             }
         }
     }
