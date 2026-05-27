@@ -103,6 +103,10 @@ public class MpvPlayer implements TextureView.SurfaceTextureListener, MPVLib.Eve
             mpv = MPVLib.create(context);
             if (mpv == null) {
                 notifyError("Failed to initialize MPV");
+                if (surface != null) {
+                    surface.release();
+                    surface = null;
+                }
                 return;
             }
             configureMpv(mpv);
