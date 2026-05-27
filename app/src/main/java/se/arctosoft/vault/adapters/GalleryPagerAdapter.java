@@ -856,7 +856,10 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
         }
         Uri uri = temporaryVideoCacheUris.remove(position);
         if (uri != null && uri.getPath() != null) {
-            new File(uri.getPath()).delete();
+            boolean deleted = new File(uri.getPath()).delete();
+            if (!deleted) {
+                Log.w(TAG, "cleanupTemporaryCache: failed to delete " + uri);
+            }
         }
     }
 
