@@ -34,7 +34,6 @@ import android.view.WindowManager;
 import android.widget.PopupMenu;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.OptIn;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.content.FileProvider;
 import androidx.core.content.res.ResourcesCompat;
@@ -44,14 +43,6 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.documentfile.provider.DocumentFile;
 import androidx.exifinterface.media.ExifInterface;
 import androidx.fragment.app.FragmentActivity;
-import androidx.media3.common.MediaItem;
-import androidx.media3.common.PlaybackException;
-import androidx.media3.common.Player;
-import androidx.media3.common.util.UnstableApi;
-import androidx.media3.datasource.DataSource;
-import androidx.media3.exoplayer.DefaultRenderersFactory;
-import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -65,9 +56,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.security.GeneralSecurityException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import se.arctosoft.vault.BuildConfig;
 import se.arctosoft.vault.DirectoryFragment;
@@ -83,7 +72,6 @@ import se.arctosoft.vault.databinding.AdapterGalleryViewpagerItemImageBinding;
 import se.arctosoft.vault.databinding.AdapterGalleryViewpagerItemTextBinding;
 import se.arctosoft.vault.databinding.AdapterGalleryViewpagerItemVideoBinding;
 import se.arctosoft.vault.encryption.Encryption;
-import se.arctosoft.vault.encryption.MyDataSourceFactory;
 import se.arctosoft.vault.exception.InvalidPasswordException;
 import se.arctosoft.vault.interfaces.IOnFileDeleted;
 import se.arctosoft.vault.subsampling.ImageSource;
@@ -107,12 +95,9 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
     private final GalleryViewModel galleryViewModel;
     private final boolean isAllFolder, useDiskCache;
     private final String nestedPath;
-    private final Map<Integer, ExoPlayer> players;
-    private final Map<Integer, Player.Listener> playerListeners;
     private final Password password;
-    private final IOnVideoNavigationRequested onVideoNavigationRequested;
+    private final IOnVideoClicked onVideoClicked;
     private boolean isFullscreen;
-    private int pendingAutoplayPosition = -1;
 
     private final View.OnAttachStateChangeListener onAttachStateChangeListener = new View.OnAttachStateChangeListener() {
         @Override
@@ -125,7 +110,7 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
         }
     };
 
-    public GalleryPagerAdapter(FragmentActivity context, @NonNull List<GalleryFile> galleryFiles, IOnFileDeleted onFileDeleted, DocumentFile currentDirectory, boolean isAllFolder, String nestedPath, GalleryViewModel galleryViewModel, IOnVideoNavigationRequested onVideoNavigationRequested) {
+    public GalleryPagerAdapter(FragmentActivity context, @NonNull List<GalleryFile> galleryFiles, IOnFileDeleted onFileDeleted, DocumentFile currentDirectory, boolean isAllFolder, String nestedPath, GalleryViewModel galleryViewModel, IOnVideoClicked onVideoClicked) {
         this.weakReference = new WeakReference<>(context);
         this.galleryFiles = galleryFiles;
         this.onFileDeleted = onFileDeleted;
@@ -134,11 +119,9 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
         this.isFullscreen = false;
         this.isAllFolder = isAllFolder;
         this.nestedPath = nestedPath;
-        this.players = new HashMap<>();
-        this.playerListeners = new HashMap<>();
         this.password = Password.getInstance();
         this.useDiskCache = Settings.getInstance(context).useDiskCache();
-        this.onVideoNavigationRequested = onVideoNavigationRequested;
+        this.onVideoClicked = onVideoClicked;
     }
 
     @NonNull
@@ -319,136 +302,25 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
 
     private void setupVideoView(GalleryPagerViewHolder.GalleryPagerVideoViewHolder holder, FragmentActivity context, GalleryFile galleryFile) {
         holder.binding.rLPlay.setVisibility(View.VISIBLE);
-        holder.binding.playerView.setVisibility(View.INVISIBLE);
         Glide.with(context)
                 .load(galleryFile.getThumbUri())
                 .apply(GlideStuff.getRequestOptions(useDiskCache))
                 .into(holder.binding.imgThumb);
         holder.parentBinding.imgFullscreen.setVisibility(isFullscreen ? View.GONE : View.VISIBLE);
-        holder.binding.rLPlay.setOnClickListener(v -> startVideoPlayback(context, galleryFile, holder));
-        if (holder.getBindingAdapterPosition() == pendingAutoplayPosition) {
-            pendingAutoplayPosition = -1;
-            startVideoPlayback(context, galleryFile, holder);
-        }
-    }
-
-    private void startVideoPlayback(@NonNull FragmentActivity context, @NonNull GalleryFile galleryFile, @NonNull GalleryPagerViewHolder.GalleryPagerVideoViewHolder holder) {
-        holder.binding.rLPlay.setVisibility(View.GONE);
-        holder.binding.playerView.setVisibility(View.VISIBLE);
-        playVideo(context, galleryFile.getUri(), holder, galleryFile.getVersion());
-    }
-
-    @OptIn(markerClass = UnstableApi.class)
-    private void playVideo(FragmentActivity context, Uri fileUri, GalleryPagerViewHolder.GalleryPagerVideoViewHolder holder, int version) {
-        final int pos = holder.getBindingAdapterPosition();
-        ExoPlayer player = players.get(pos);
-        final int previousVideoPos = getPreviousVideoPosition(pos);
-        final int nextVideoPos = getNextVideoPosition(pos);
-        for (ExoPlayer player1 : players.values()) {
-            if (player1 != player && player1 != null) {
-                player1.pause();
+        holder.binding.rLPlay.setOnClickListener(v -> {
+            int pos = holder.getBindingAdapterPosition();
+            if (pos != RecyclerView.NO_POSITION && onVideoClicked != null) {
+                onVideoClicked.onVideoClicked(pos);
             }
-        }
-        if (player == null) {
-            DataSource.Factory dataSourceFactory = new MyDataSourceFactory(context, version, password);
-            ProgressiveMediaSource.Factory progressiveFactory = new ProgressiveMediaSource.Factory(dataSourceFactory);
-            DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(context)
-                    .setEnableDecoderFallback(true);
-            player = new ExoPlayer.Builder(context)
-                    .setRenderersFactory(renderersFactory)
-                    .setMediaSourceFactory(progressiveFactory)
-                    .build();
-            player.setRepeatMode(Player.REPEAT_MODE_OFF);
-            players.put(pos, player);
-        }
-        MediaItem mediaItem = new MediaItem.Builder()
-                .setMimeType("video/*")
-                .setUri(fileUri)
-                .build();
-        player.setMediaItem(mediaItem);
-        setupVideoControllerNavigation(holder, previousVideoPos, nextVideoPos);
-        holder.binding.playerView.setControllerShowTimeoutMs(1500);
-        Player.Listener previousListener = playerListeners.get(pos);
-        if (previousListener != null) {
-            player.removeListener(previousListener);
-        }
-        Player.Listener listener = new Player.Listener() {
-            @Override
-            public void onIsPlayingChanged(boolean isPlaying) {
-                Player.Listener.super.onIsPlayingChanged(isPlaying);
-                holder.parentBinding.lLButtons.setVisibility(isPlaying ? View.INVISIBLE : View.VISIBLE);
-            }
-
-            @Override
-            public void onPlayerError(@NonNull PlaybackException error) {
-                Player.Listener.super.onPlayerError(error);
-                Toaster.getInstance(context).showLong(context.getString(R.string.gallery_video_error, error.getMessage()));
-            }
-
-            @Override
-            public void onPlaybackStateChanged(int playbackState) {
-                Player.Listener.super.onPlaybackStateChanged(playbackState);
-                if (playbackState == Player.STATE_ENDED && nextVideoPos >= 0) {
-                    navigateToVideo(nextVideoPos, true);
-                }
-            }
-        };
-        player.addListener(listener);
-        playerListeners.put(pos, listener);
-        holder.binding.playerView.setPlayer(player);
-        player.prepare();
-        player.setPlayWhenReady(true);
-        holder.binding.playerView.hideController();
+        });
     }
 
-    private void setupVideoControllerNavigation(@NonNull GalleryPagerViewHolder.GalleryPagerVideoViewHolder holder, int previousVideoPos, int nextVideoPos) {
-        View previousButton = holder.binding.playerView.findViewById(androidx.media3.ui.R.id.exo_prev);
-        if (previousButton != null) {
-            previousButton.setEnabled(previousVideoPos >= 0);
-            previousButton.setAlpha(previousVideoPos >= 0 ? 1f : 0.4f);
-            previousButton.setOnClickListener(v -> {
-                int currentPos = holder.getBindingAdapterPosition();
-                navigateToVideo(getPreviousVideoPosition(currentPos), true);
-            });
-        }
-        View nextButton = holder.binding.playerView.findViewById(androidx.media3.ui.R.id.exo_next);
-        if (nextButton != null) {
-            nextButton.setEnabled(nextVideoPos >= 0);
-            nextButton.setAlpha(nextVideoPos >= 0 ? 1f : 0.4f);
-            nextButton.setOnClickListener(v -> {
-                int currentPos = holder.getBindingAdapterPosition();
-                navigateToVideo(getNextVideoPosition(currentPos), true);
-            });
-        }
-    }
-
-    private int getNextVideoPosition(int currentPos) {
-        for (int i = currentPos + 1; i < galleryFiles.size(); i++) {
-            if (galleryFiles.get(i).isVideo()) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    private int getPreviousVideoPosition(int currentPos) {
-        for (int i = currentPos - 1; i >= 0; i--) {
-            if (galleryFiles.get(i).isVideo()) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    private void navigateToVideo(int position, boolean autoplay) {
-        if (position >= 0 && position < galleryFiles.size() && onVideoNavigationRequested != null) {
-            pendingAutoplayPosition = autoplay ? position : -1;
-            onVideoNavigationRequested.onNavigate(position);
-        }
-    }
-
-    public interface IOnVideoNavigationRequested {
-        void onNavigate(int position);
+    /**
+     * Notified when a video item is tapped. The host fragment opens the vertical mpv
+     * powered video viewer at the corresponding video.
+     */
+    public interface IOnVideoClicked {
+        void onVideoClicked(int position);
     }
 
     private void setupImageView(GalleryPagerViewHolder holder, FragmentActivity context, GalleryFile galleryFile) {
@@ -809,46 +681,11 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
     }
 
     @Override
-    public void onViewDetachedFromWindow(@NonNull GalleryPagerViewHolder holder) {
-        if (holder instanceof GalleryPagerViewHolder.GalleryPagerVideoViewHolder vh) {
-            pauseVideo(vh);
-        }
-        super.onViewDetachedFromWindow(holder);
-    }
-
-    @Override
     public void onViewRecycled(@NonNull GalleryPagerViewHolder holder) {
         if (holder instanceof GalleryPagerViewHolder.GalleryPagerImageViewHolder h) {
             h.binding.imageView.recycle();
-        } else if (holder instanceof GalleryPagerViewHolder.GalleryPagerVideoViewHolder vh) {
-            releaseVideo(vh);
         }
         super.onViewRecycled(holder);
-    }
-
-    private void releaseVideo(GalleryPagerViewHolder.GalleryPagerVideoViewHolder holder) {
-        final int pos = holder.getBindingAdapterPosition();
-        holder.binding.playerView.setPlayer(null);
-        if (pos >= 0) {
-            ExoPlayer player = players.remove(pos);
-            if (player != null) {
-                Player.Listener listener = playerListeners.remove(pos);
-                if (listener != null) {
-                    player.removeListener(listener);
-                }
-                player.release();
-            }
-        }
-    }
-
-    private void pauseVideo(GalleryPagerViewHolder.GalleryPagerVideoViewHolder holder) {
-        final int pos = holder.getBindingAdapterPosition();
-        if (pos >= 0) {
-            ExoPlayer player = players.get(pos);
-            if (player != null) {
-                player.pause();
-            }
-        }
     }
 
     @Override
@@ -856,33 +693,7 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
         return galleryFiles.size();
     }
 
-    public void releasePlayers() {
-        for (Map.Entry<Integer, ExoPlayer> entry : players.entrySet()) {
-            ExoPlayer player = entry.getValue();
-            if (player != null) {
-                Player.Listener listener = playerListeners.remove(entry.getKey());
-                if (listener != null) {
-                    player.removeListener(listener);
-                }
-                player.release();
-            }
-        }
-        players.clear();
-        playerListeners.clear();
-    }
-
-    public void pausePlayers() {
-        for (Player p : players.values()) {
-            if (p != null && p.isPlaying()) {
-                p.pause();
-            }
-        }
-    }
-
     public void showPager(boolean showPager) {
-        if (!showPager) {
-            pausePlayers();
-        }
         setFullscreen(weakReference.get(), false);
     }
 }

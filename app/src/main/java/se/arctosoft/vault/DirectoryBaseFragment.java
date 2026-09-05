@@ -53,6 +53,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 import androidx.viewpager2.widget.ViewPager2;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -74,6 +75,7 @@ import se.arctosoft.vault.viewmodel.GalleryViewModel;
 import se.arctosoft.vault.viewmodel.ImportViewModel;
 import se.arctosoft.vault.viewmodel.MoveViewModel;
 import se.arctosoft.vault.viewmodel.PasswordViewModel;
+import se.arctosoft.vault.viewmodel.VideoViewerViewModel;
 
 public abstract class DirectoryBaseFragment extends Fragment implements MenuProvider {
     private static final String TAG = "DirectoryBaseFragment";
@@ -352,7 +354,14 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
         galleryGridAdapter.setNestedPath(galleryViewModel.getNestedPath());
         galleryGridAdapter.setOnFileDeleted(pos -> galleryPagerAdapter.notifyItemRemoved(pos));
         binding.recyclerView.setAdapter(galleryGridAdapter);
-        galleryGridAdapter.setOnFileCLicked(pos -> showViewpager(true, pos, true));
+        galleryGridAdapter.setOnFileCLicked(pos -> {
+            List<GalleryFile> files = galleryViewModel.getGalleryFiles();
+            if (pos >= 0 && pos < files.size() && files.get(pos).isVideo()) {
+                openVideoViewer(pos);
+            } else {
+                showViewpager(true, pos, true);
+            }
+        });
         galleryGridAdapter.setOnSelectionModeChanged(this::onSelectionModeChanged);
     }
 
@@ -368,7 +377,7 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
 
     void setupViewpager() {
         galleryPagerAdapter = new GalleryPagerAdapter(requireActivity(), galleryViewModel.getGalleryFiles(), pos -> galleryGridAdapter.notifyItemRemoved(pos), galleryViewModel.getCurrentDocumentDirectory(),
-                galleryViewModel.isAllFolder(), galleryViewModel.getNestedPath(), galleryViewModel, pos -> binding.viewPager.setCurrentItem(pos, true));
+                galleryViewModel.isAllFolder(), galleryViewModel.getNestedPath(), galleryViewModel, this::openVideoViewer);
         binding.viewPager.setAdapter(galleryPagerAdapter);
         //Log.e(TAG, "setupViewpager: " + viewModel.getCurrentPosition() + " " + viewModel.isFullscreen());
         binding.viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
@@ -388,6 +397,34 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
     void setLoading(boolean loading) {
         binding.cLLoading.cLLoading.setVisibility(loading ? View.VISIBLE : View.GONE);
         binding.cLLoading.txtProgress.setVisibility(View.GONE);
+    }
+
+    /**
+     * Open the vertical (TikTok style) mpv video viewer, starting at the video located
+     * at {@code clickedPosition} in the gallery. Only video files are passed to the
+     * viewer so vertical swiping moves between videos.
+     */
+    void openVideoViewer(int clickedPosition) {
+        List<GalleryFile> videos = new ArrayList<>();
+        int startIndex = 0;
+        synchronized (LOCK) {
+            List<GalleryFile> all = galleryViewModel.getGalleryFiles();
+            for (int i = 0; i < all.size(); i++) {
+                GalleryFile f = all.get(i);
+                if (f.isVideo()) {
+                    if (i == clickedPosition) {
+                        startIndex = videos.size();
+                    }
+                    videos.add(f);
+                }
+            }
+        }
+        if (videos.isEmpty()) {
+            return;
+        }
+        VideoViewerViewModel videoViewerViewModel = new ViewModelProvider(requireActivity()).get(VideoViewerViewModel.class);
+        videoViewerViewModel.setVideos(videos, startIndex);
+        navController.navigate(R.id.action_global_video_viewer);
     }
 
     void showViewpager(boolean show, int pos, boolean animate) {
@@ -642,9 +679,6 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
 
     @Override
     public void onStop() {
-        if (galleryPagerAdapter != null) {
-            galleryPagerAdapter.pausePlayers();
-        }
         requireActivity().removeMenuProvider(this);
         if (galleryViewModel != null && !galleryViewModel.isViewpagerVisible()) {
             StaggeredGridLayoutManager layoutManager = (StaggeredGridLayoutManager) binding.recyclerView.getLayoutManager();
@@ -666,9 +700,6 @@ public abstract class DirectoryBaseFragment extends Fragment implements MenuProv
 
     @Override
     public void onDestroy() {
-        if (galleryPagerAdapter != null) {
-            galleryPagerAdapter.releasePlayers();
-        }
         super.onDestroy();
     }
 

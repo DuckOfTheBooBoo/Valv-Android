@@ -51,4 +51,14 @@
         android:name="se.arctosoft.vault.SettingsFragment"
         android:label="@string/settings" />
 
+    <fragment
+        android:id="@+id/video_viewer"
+        android:name="se.arctosoft.vault.VideoViewerFragment"
+        android:label="@string/gallery_title"
+        tools:layout="@layout/fragment_video_viewer" />
+
+    <action
+        android:id="@+id/action_global_video_viewer"
+        app:destination="@id/video_viewer" />
+
 </navigation>
