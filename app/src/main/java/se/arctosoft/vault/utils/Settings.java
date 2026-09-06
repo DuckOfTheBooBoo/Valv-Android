@@ -54,6 +54,7 @@ public class Settings {
     public static final String PREF_APP_EXIT_ON_LOCK = "app_exit_on_lock";
     public static final String PREF_APP_BIOMETRICS = "app_biometrics";
     public static final String PREF_APP_BIOMETRICS_DATA = "app_biometrics_data";
+    public static final String PREF_APP_SHOW_TAGS = "app_show_tags";
 
     private final Context context;
     private static Settings settings;
@@ -142,6 +143,14 @@ public class Settings {
 
     public void setSecureFlag(boolean secureFlag) {
         getSharedPrefsEditor().putBoolean(PREF_APP_SECURE, secureFlag).apply();
+    }
+
+    public boolean showTags() {
+        return getSharedPrefs().getBoolean(PREF_APP_SHOW_TAGS, true);
+    }
+
+    public void setShowTags(boolean showTags) {
+        getSharedPrefsEditor().putBoolean(PREF_APP_SHOW_TAGS, showTags).apply();
     }
 
     public boolean exitOnLock() {

@@ -82,6 +82,7 @@ import se.arctosoft.vault.utils.GlideStuff;
 import se.arctosoft.vault.utils.Pixels;
 import se.arctosoft.vault.utils.Settings;
 import se.arctosoft.vault.utils.StringStuff;
+import se.arctosoft.vault.utils.TagStore;
 import se.arctosoft.vault.utils.Toaster;
 import se.arctosoft.vault.viewmodel.GalleryViewModel;
 
@@ -476,6 +477,8 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
                 loadShareOrOpen(context, galleryFile, true);
             } else if (id == R.id.edit_text) {
                 showEditFile(context, galleryFile, holder);
+            } else if (id == R.id.edit_tags) {
+                showEditTags(context, galleryFile);
             }
             return true;
         });
@@ -483,8 +486,15 @@ public class GalleryPagerAdapter extends RecyclerView.Adapter<GalleryPagerViewHo
         menu.getItem(2).setEnabled(!isAllFolder);
         menu.getItem(3).setVisible(!isAllFolder && galleryFile.isText()); // hide edit text in All folder and for non-text files
         menu.getItem(3).setEnabled(!isAllFolder && galleryFile.isText());
+        menu.findItem(R.id.edit_tags).setVisible(galleryFile.isVideo()); // tags apply to videos
+        menu.findItem(R.id.edit_tags).setEnabled(galleryFile.isVideo());
 
         popup.show();
+    }
+
+    private void showEditTags(FragmentActivity context, GalleryFile galleryFile) {
+        String current = TagStore.getTag(context, galleryFile);
+        Dialogs.showEditTagDialog(context, current, text -> TagStore.setTag(context, galleryFile, text));
     }
 
     private void showEditNote(FragmentActivity context, GalleryFile galleryFile, GalleryPagerViewHolder holder) {

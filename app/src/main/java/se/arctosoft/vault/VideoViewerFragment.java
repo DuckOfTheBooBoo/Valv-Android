@@ -22,10 +22,13 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.PopupMenu;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -48,7 +51,9 @@ import se.arctosoft.vault.data.GalleryFile;
 import se.arctosoft.vault.databinding.FragmentVideoViewerBinding;
 import se.arctosoft.vault.mpv.MpvPlayer;
 import se.arctosoft.vault.mpv.VideoCache;
+import se.arctosoft.vault.utils.Dialogs;
 import se.arctosoft.vault.utils.Settings;
+import se.arctosoft.vault.utils.TagStore;
 import se.arctosoft.vault.utils.Toaster;
 import se.arctosoft.vault.viewmodel.VideoViewerViewModel;
 
@@ -74,6 +79,22 @@ public class VideoViewerFragment extends Fragment implements VideoPagerAdapter.L
     private int currentPosition = RecyclerView.NO_POSITION;
     private int loadedPosition = RecyclerView.NO_POSITION;
     private int decryptingPosition = RecyclerView.NO_POSITION;
+
+    private static final long SPEED_HOLD_DELAY_MS = 300;
+    private float downX, downY;
+    private int touchSlop;
+    private boolean speedHeld = false;
+    private boolean suppressNextTap = false;
+    private final Runnable speedRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (mpvPlayer != null && loadedPosition == currentPosition) {
+                mpvPlayer.setSpeed(2.0);
+                speedHeld = true;
+                adapter.setSpeedIndicator(currentPosition, true);
+            }
+        }
+    };
 
     private final Runnable poller = new Runnable() {
         @Override
@@ -109,8 +130,9 @@ public class VideoViewerFragment extends Fragment implements VideoPagerAdapter.L
             return;
         }
 
-        setPadding();
+        touchSlop = ViewConfiguration.get(requireContext()).getScaledTouchSlop();
         binding.btnClose.setOnClickListener(v -> NavHostFragment.findNavController(this).navigateUp());
+        binding.btnMenu.setOnClickListener(this::showMenu);
 
         mpvPlayer = new MpvPlayer(requireContext());
         if (!mpvPlayer.isInitialised()) {
@@ -127,27 +149,122 @@ public class VideoViewerFragment extends Fragment implements VideoPagerAdapter.L
                 selectPage(position);
             }
         });
+        setupSpeedHold();
+        applyInsets();
 
         int startIndex = viewModel.getCurrentIndex();
         binding.videoPager.setCurrentItem(startIndex, false);
         binding.videoPager.post(() -> selectPage(startIndex));
     }
 
-    private void setPadding() {
-        ViewCompat.setOnApplyWindowInsetsListener(binding.btnClose, (v, insets) -> {
+    private void applyInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.getRoot(), (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-            ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
-            params.leftMargin = bars.left;
-            params.topMargin = bars.top;
-            v.setLayoutParams(params);
-            return WindowInsetsCompat.CONSUMED;
+            int base = Math.round(8 * getResources().getDisplayMetrics().density);
+            setMargins(binding.btnClose, bars.left + base, bars.top + base, base);
+            setMargins(binding.btnMenu, base, bars.top + base, bars.right + base);
+            if (adapter != null) {
+                adapter.setBottomInset(bars.bottom);
+            }
+            return insets;
         });
+        binding.getRoot().requestApplyInsets();
+    }
+
+    private void setMargins(@NonNull View v, int left, int top, int right) {
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
+        params.leftMargin = left;
+        params.topMargin = top;
+        params.rightMargin = right;
+        v.setLayoutParams(params);
+    }
+
+    private void showMenu(@NonNull View anchor) {
+        if (currentPosition == RecyclerView.NO_POSITION) {
+            return;
+        }
+        GalleryFile galleryFile = videos.get(currentPosition);
+        PopupMenu popup = new PopupMenu(requireContext(), anchor);
+        popup.getMenu().add(0, R.id.edit_tags, 0, R.string.edit_tags);
+        popup.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.edit_tags) {
+                String current = TagStore.getTag(requireContext(), galleryFile);
+                Dialogs.showEditTagDialog(requireActivity(), current, text -> {
+                    TagStore.setTag(requireContext(), galleryFile, text);
+                    adapter.refreshTag(currentPosition);
+                });
+                return true;
+            }
+            return false;
+        });
+        popup.show();
+    }
+
+    private void setupSpeedHold() {
+        View child = binding.videoPager.getChildAt(0);
+        if (!(child instanceof RecyclerView)) {
+            return;
+        }
+        RecyclerView rv = (RecyclerView) child;
+        rv.addOnItemTouchListener(new RecyclerView.OnItemTouchListener() {
+            @Override
+            public boolean onInterceptTouchEvent(@NonNull RecyclerView recyclerView, @NonNull MotionEvent e) {
+                handleSpeedTouch(recyclerView, e);
+                return false;
+            }
+
+            @Override
+            public void onTouchEvent(@NonNull RecyclerView recyclerView, @NonNull MotionEvent e) {
+            }
+
+            @Override
+            public void onRequestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+            }
+        });
+    }
+
+    private void handleSpeedTouch(@NonNull RecyclerView rv, @NonNull MotionEvent e) {
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                downX = e.getX();
+                downY = e.getY();
+                speedHeld = false;
+                suppressNextTap = false;
+                // Only the left/right thirds trigger 2x; the centre is reserved for tap-to-pause.
+                boolean side = downX < rv.getWidth() * 0.4f || downX > rv.getWidth() * 0.6f;
+                if (side && loadedPosition == currentPosition) {
+                    handler.postDelayed(speedRunnable, SPEED_HOLD_DELAY_MS);
+                }
+                break;
+            case MotionEvent.ACTION_MOVE:
+                if (Math.abs(e.getX() - downX) > touchSlop || Math.abs(e.getY() - downY) > touchSlop) {
+                    cancelSpeedHold();
+                }
+                break;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                cancelSpeedHold();
+                break;
+        }
+    }
+
+    private void cancelSpeedHold() {
+        handler.removeCallbacks(speedRunnable);
+        if (speedHeld) {
+            speedHeld = false;
+            suppressNextTap = true;
+            if (mpvPlayer != null) {
+                mpvPlayer.setSpeed(1.0);
+            }
+            adapter.setSpeedIndicator(currentPosition, false);
+        }
     }
 
     private void selectPage(int position) {
         if (position == currentPosition || position < 0 || position >= videos.size()) {
             return;
         }
+        cancelSpeedHold();
         currentPosition = position;
         loadedPosition = RecyclerView.NO_POSITION;
         viewModel.setCurrentIndex(position);
@@ -233,6 +350,10 @@ public class VideoViewerFragment extends Fragment implements VideoPagerAdapter.L
 
     @Override
     public void onItemTapped(int position) {
+        if (suppressNextTap) {
+            suppressNextTap = false;
+            return;
+        }
         if (mpvPlayer == null || position != currentPosition || loadedPosition != currentPosition) {
             return;
         }
@@ -256,6 +377,7 @@ public class VideoViewerFragment extends Fragment implements VideoPagerAdapter.L
 
     @Override
     public void onPause() {
+        cancelSpeedHold();
         handler.removeCallbacks(poller);
         if (mpvPlayer != null && loadedPosition == currentPosition) {
             long position = mpvPlayer.getPositionMs();

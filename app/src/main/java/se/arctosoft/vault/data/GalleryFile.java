@@ -51,7 +51,8 @@ public class GalleryFile implements Comparable<GalleryFile> {
     private final int version;
     private Uri fileUri;
     private Uri thumbUri, noteUri, decryptedCacheUri;
-    private String originalName, nameWithPath, note, text;
+    private String originalName, nameWithPath, note, text, tag;
+    private boolean tagLoaded;
     private int fileCount, orientation;
 
     private GalleryFile(String name) {
@@ -275,6 +276,24 @@ public class GalleryFile implements Comparable<GalleryFile> {
 
     public boolean hasNote() {
         return noteUri != null || note != null;
+    }
+
+    @Nullable
+    public String getTag() {
+        return tag;
+    }
+
+    public void setTag(@Nullable String tag) {
+        this.tag = tag;
+        this.tagLoaded = true;
+    }
+
+    public boolean isTagLoaded() {
+        return tagLoaded;
+    }
+
+    public boolean hasTag() {
+        return tag != null && !tag.isEmpty();
     }
 
     public FileType getFileType() {

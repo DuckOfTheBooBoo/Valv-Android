@@ -48,6 +48,14 @@
             app:title="@string/settings_delete_by_default_title" />
 
         <SwitchPreferenceCompat
+            android:key="app_show_tags"
+            app:defaultValue="true"
+            app:icon="@drawable/ic_baseline_tag_24"
+            app:summaryOff="@string/settings_show_tags_summary_off"
+            app:summaryOn="@string/settings_show_tags_summary_on"
+            app:title="@string/settings_show_tags_title" />
+
+        <SwitchPreferenceCompat
             android:key="encryption_display_decryptable_only"
             app:defaultValue="false"
             app:icon="@drawable/outline_hide_image_24"

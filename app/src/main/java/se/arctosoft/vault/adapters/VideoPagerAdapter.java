@@ -36,6 +36,8 @@ import java.util.List;
 import se.arctosoft.vault.data.GalleryFile;
 import se.arctosoft.vault.databinding.AdapterVideoViewerItemBinding;
 import se.arctosoft.vault.utils.GlideStuff;
+import se.arctosoft.vault.utils.Settings;
+import se.arctosoft.vault.utils.TagStore;
 
 /**
  * Adapter backing the vertical (TikTok style) video pager. Each page owns a
@@ -58,14 +60,40 @@ public class VideoPagerAdapter extends RecyclerView.Adapter<VideoPagerAdapter.Vi
     private final Context context;
     private final List<GalleryFile> videos;
     private final boolean useDiskCache;
+    private final boolean showTags;
     private final Listener listener;
     private RecyclerView recyclerView;
+    private int bottomInset = 0;
 
     public VideoPagerAdapter(@NonNull Context context, @NonNull List<GalleryFile> videos, boolean useDiskCache, @NonNull Listener listener) {
         this.context = context.getApplicationContext();
         this.videos = videos;
         this.useDiskCache = useDiskCache;
+        this.showTags = Settings.getInstance(context).showTags();
         this.listener = listener;
+    }
+
+    /**
+     * Extra bottom padding (system gesture/navigation inset plus a small margin) applied
+     * to the caption + progress bar so they sit clear of the OS gesture pill.
+     */
+    public void setBottomInset(int bottomInset) {
+        this.bottomInset = bottomInset;
+        if (recyclerView == null) {
+            return;
+        }
+        for (int i = 0; i < recyclerView.getChildCount(); i++) {
+            RecyclerView.ViewHolder vh = recyclerView.getChildViewHolder(recyclerView.getChildAt(i));
+            if (vh instanceof VideoViewHolder) {
+                applyBottomInset((VideoViewHolder) vh);
+            }
+        }
+    }
+
+    private void applyBottomInset(@NonNull VideoViewHolder holder) {
+        View bar = holder.binding.bottomBar;
+        int extra = Math.round(8 * bar.getResources().getDisplayMetrics().density);
+        bar.setPadding(bar.getPaddingLeft(), bar.getPaddingTop(), bar.getPaddingRight(), bottomInset + extra);
     }
 
     @Override
@@ -114,6 +142,28 @@ public class VideoPagerAdapter extends RecyclerView.Adapter<VideoPagerAdapter.Vi
         }
     }
 
+    public void setSpeedIndicator(int position, boolean visible) {
+        VideoViewHolder holder = holderAt(position);
+        if (holder != null) {
+            holder.binding.txtSpeed.animate().alpha(visible ? 1f : 0f).setDuration(120).start();
+        }
+    }
+
+    /** Re-read the tag for the given page and update its caption. */
+    public void refreshTag(int position) {
+        VideoViewHolder holder = holderAt(position);
+        if (holder != null && position >= 0 && position < videos.size()) {
+            bindTag(holder, videos.get(position));
+        }
+    }
+
+    private void bindTag(@NonNull VideoViewHolder holder, @NonNull GalleryFile galleryFile) {
+        String tag = showTags ? TagStore.getTag(context, galleryFile) : null;
+        boolean show = showTags && tag != null && !tag.isEmpty();
+        holder.binding.txtTag.setText(show ? tag : "");
+        holder.binding.txtTag.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
     @Nullable
     public Surface getSurfaceAt(int position) {
         VideoViewHolder holder = holderAt(position);
@@ -134,7 +184,10 @@ public class VideoPagerAdapter extends RecyclerView.Adapter<VideoPagerAdapter.Vi
         holder.binding.imgThumb.setVisibility(View.VISIBLE);
         holder.binding.progressLoading.setVisibility(View.VISIBLE);
         holder.binding.imgPlayPause.setAlpha(0f);
+        holder.binding.txtSpeed.setAlpha(0f);
         holder.binding.progressBar.setProgress(0);
+        bindTag(holder, galleryFile);
+        applyBottomInset(holder);
         Glide.with(context)
                 .load(galleryFile.getThumbUri())
                 .apply(GlideStuff.getRequestOptions(useDiskCache))

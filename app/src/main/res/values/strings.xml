@@ -116,6 +116,16 @@
     <string name="gallery_importing_done">Encrypted and imported %1$d files</string>
     <string name="gallery_video_error">Playback error: %1$s</string>
     <string name="gallery_video_viewer_close">Close video viewer</string>
+    <string name="gallery_video_viewer_menu">More options</string>
+    <string name="gallery_video_speed_2x">2x</string>
+    <string name="edit_tags">Edit tags</string>
+    <string name="dialog_edit_tag_title">Video tags</string>
+    <string name="dialog_edit_tag_hint">Add tags (e.g. a caption)</string>
+    <string name="tag_save">Save</string>
+    <string name="tag_delete">Remove</string>
+    <string name="settings_show_tags_title">Show video tags</string>
+    <string name="settings_show_tags_summary_on">Video tags are shown as a caption on videos</string>
+    <string name="settings_show_tags_summary_off">Video tags are hidden</string>
     <string name="main_press_back_again_to_exit">Press the back button again to lock the vault</string>
     <string name="gallery_loading_note">Decrypting note</string>
     <string name="gallery_note_decrypt_failed">Failed to decrypt note: %1$s</string>

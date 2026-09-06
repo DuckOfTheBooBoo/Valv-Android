@@ -29,3 +29,8 @@
     public static int w(...);
     public static int e(...);
 }
+# androidx.security:security-crypto (Tink) references javax annotations not present on Android
+-dontwarn javax.annotation.**
+-dontwarn com.google.errorprone.annotations.**
+# Keep Tink / dev.jdtech mpv JNI entry points intact under R8
+-keep class dev.jdtech.mpv.** { *; }

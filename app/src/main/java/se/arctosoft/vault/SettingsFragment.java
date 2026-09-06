@@ -64,6 +64,7 @@ public class SettingsFragment extends PreferenceFragmentCompat implements MenuPr
         SwitchPreferenceCompat deleteByDefault = findPreference(Settings.PREF_ENCRYPTION_DELETE_BY_DEFAULT);
         SwitchPreferenceCompat showDecryptableOnly = findPreference(Settings.PREF_ENCRYPTION_DISPLAY_DECRYPTABLE_ONLY);
         SwitchPreferenceCompat exitOnLock = findPreference(Settings.PREF_APP_EXIT_ON_LOCK);
+        SwitchPreferenceCompat showTags = findPreference(Settings.PREF_APP_SHOW_TAGS);
 
         FragmentActivity activity = requireActivity();
         Settings settings = Settings.getInstance(activity);
@@ -159,6 +160,14 @@ public class SettingsFragment extends PreferenceFragmentCompat implements MenuPr
             settings.setExitOnLock((boolean) newValue);
             return true;
         });
+
+        if (showTags != null) {
+            showTags.setChecked(settings.showTags());
+            showTags.setOnPreferenceChangeListener((preference, newValue) -> {
+                settings.setShowTags((boolean) newValue);
+                return true;
+            });
+        }
 
         editFolders.setOnPreferenceClickListener(preference -> {
             Dialogs.showEditIncludedFolders(activity, settings, selectedToRemove -> {

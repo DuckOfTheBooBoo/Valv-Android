@@ -146,6 +146,13 @@ public class MpvPlayer {
         setPaused(!isPaused());
     }
 
+    public void setSpeed(double speed) {
+        if (!initialised) {
+            return;
+        }
+        MPVLib.setPropertyString("speed", String.valueOf(speed));
+    }
+
     public void seekTo(long positionMs) {
         if (!initialised) {
             return;

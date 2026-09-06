@@ -194,6 +194,22 @@ public class Dialogs {
                 .show();
     }
 
+    public static void showEditTagDialog(FragmentActivity context, @Nullable String editTextBody, IOnEdited onEdited) {
+        DialogEditNoteBinding binding = DialogEditNoteBinding.inflate(context.getLayoutInflater(), null, false);
+        binding.text.setHint(R.string.dialog_edit_tag_hint);
+        if (editTextBody != null) {
+            binding.text.setText(editTextBody);
+        }
+
+        new MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.dialog_edit_tag_title)
+                .setView(binding.getRoot())
+                .setPositiveButton(R.string.tag_save, (dialog, which) -> onEdited.onEdited(binding.text.getText().toString()))
+                .setNegativeButton(android.R.string.cancel, null)
+                .setNeutralButton(R.string.tag_delete, (dialog, which) -> onEdited.onEdited(null))
+                .show();
+    }
+
     public static void showImportTextDialog(FragmentActivity context, @Nullable String editTextBody, boolean isEdit, IOnEdited onEdited) {
         DialogImportTextBinding binding = DialogImportTextBinding.inflate(context.getLayoutInflater(), null, false);
         if (editTextBody != null) {
