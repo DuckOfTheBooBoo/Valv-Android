@@ -294,6 +294,7 @@ public class VideoViewerFragment extends Fragment implements VideoPagerAdapter.L
                 mpvPlayer.playFile(file.getAbsolutePath(), viewModel.getSavedPositionMs(), viewModel.isPaused());
                 loadedPosition = loadingPosition;
                 adapter.setPausedIcon(currentPosition, viewModel.isPaused());
+                prefetchNeighbours();
             }
 
             @Override
@@ -306,6 +307,24 @@ public class VideoViewerFragment extends Fragment implements VideoPagerAdapter.L
                 }
             }
         });
+    }
+
+    /**
+     * Decrypt the next and previous clips in the background so swiping to them starts
+     * playback (almost) immediately instead of waiting on a full decryption.
+     */
+    private void prefetchNeighbours() {
+        if (!isAdded() || videos == null) {
+            return;
+        }
+        int next = currentPosition + 1;
+        int prev = currentPosition - 1;
+        if (next >= 0 && next < videos.size()) {
+            VideoCache.prefetch(requireContext(), videos.get(next));
+        }
+        if (prev >= 0 && prev < videos.size()) {
+            VideoCache.prefetch(requireContext(), videos.get(prev));
+        }
     }
 
     private void attachCurrentSurface() {
