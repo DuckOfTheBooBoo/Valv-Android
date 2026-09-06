@@ -2,6 +2,7 @@ package se.arctosoft.vault;
 
 import org.junit.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -22,11 +23,11 @@ public class VideoPlayerMigrationTest {
 
         Path mpvPlayer = projectRoot.resolve("app/src/main/java/se/arctosoft/vault/mpv/MpvPlayer.java");
         assertTrue("MpvPlayer wrapper should exist", Files.exists(mpvPlayer));
-        assertTrue("MpvPlayer should use libmpv", Files.readString(mpvPlayer).contains("dev.jdtech.mpv.MPVLib"));
+        assertTrue("MpvPlayer should use libmpv", readFile(mpvPlayer).contains("dev.jdtech.mpv.MPVLib"));
 
         Path viewer = projectRoot.resolve("app/src/main/java/se/arctosoft/vault/VideoViewerFragment.java");
         assertTrue("Vertical video viewer should exist", Files.exists(viewer));
-        assertTrue("Viewer should drive the mpv player", Files.readString(viewer).contains("MpvPlayer"));
+        assertTrue("Viewer should drive the mpv player", readFile(viewer).contains("MpvPlayer"));
     }
 
     @Test
@@ -34,9 +35,13 @@ public class VideoPlayerMigrationTest {
         Path projectRoot = findProjectRoot();
         Path adapterPath = projectRoot.resolve("app/src/main/java/se/arctosoft/vault/adapters/GalleryPagerAdapter.java");
         assertTrue(Files.exists(adapterPath));
-        String content = Files.readString(adapterPath);
+        String content = readFile(adapterPath);
         assertFalse("GalleryPagerAdapter should no longer reference ExoPlayer", content.contains("ExoPlayer"));
         assertFalse("GalleryPagerAdapter should no longer reference media3", content.contains("androidx.media3"));
+    }
+
+    private static String readFile(Path path) throws Exception {
+        return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }
 
     private static Path findProjectRoot() {

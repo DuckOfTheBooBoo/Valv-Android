@@ -26,7 +26,6 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.google.common.primitives.Bytes;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -266,7 +265,7 @@ public class Settings {
 
     public void createDirHashEntry(byte[] salt, byte[] hash) {
         String keys = getSharedPrefs().getString(PREF_VAULT_KEYS, "");
-        String newKeys = new String(Bytes.concat(keys.getBytes(StandardCharsets.ISO_8859_1), salt, hash), StandardCharsets.ISO_8859_1);
+        String newKeys = new String(concatByteArrays(keys.getBytes(StandardCharsets.ISO_8859_1), salt, hash), StandardCharsets.ISO_8859_1);
         getSharedPrefsEditor()
                 .putString(PREF_VAULT_KEYS, newKeys)
                 .apply();
@@ -277,7 +276,7 @@ public class Settings {
             return;
         }
 
-        byte[] bytesToRemove = Bytes.concat(salt, hash);
+        byte[] bytesToRemove = concatByteArrays(salt, hash);
         byte[] storedBytes = getSharedPrefs().getString(PREF_VAULT_KEYS, "").getBytes(StandardCharsets.ISO_8859_1);
 
         if (storedBytes.length < bytesToRemove.length) {
@@ -292,7 +291,7 @@ public class Settings {
                 byte[] before = i == 0 ? new byte[0] : Arrays.copyOfRange(storedBytes, 0, i);
                 byte[] after = i + entryLength > storedBytes.length ? new byte[0] : Arrays.copyOfRange(storedBytes, i + entryLength, storedBytes.length);
 
-                String newKeys = new String(Bytes.concat(before, after), StandardCharsets.ISO_8859_1);
+                String newKeys = new String(concatByteArrays(before, after), StandardCharsets.ISO_8859_1);
                 getSharedPrefsEditor()
                         .putString(PREF_VAULT_KEYS, newKeys)
                         .remove(PREF_VAULT_PREFIX + new String(hash, StandardCharsets.UTF_8))
@@ -309,5 +308,19 @@ public class Settings {
 
     public boolean showFilenames() {
         return getSharedPrefs().getBoolean(PREF_SHOW_FILENAMES_IN_GRID, true);
+    }
+
+    private static byte[] concatByteArrays(byte[]... arrays) {
+        int length = 0;
+        for (byte[] array : arrays) {
+            length += array.length;
+        }
+        byte[] result = new byte[length];
+        int position = 0;
+        for (byte[] array : arrays) {
+            System.arraycopy(array, 0, result, position, array.length);
+            position += array.length;
+        }
+        return result;
     }
 }
