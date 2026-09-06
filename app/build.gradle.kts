@@ -9,7 +9,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "se.arctosoft.vault"
+        applicationId = "mpvfork.vault"
         minSdk = 28
         targetSdk = 36
         versionCode = 39
