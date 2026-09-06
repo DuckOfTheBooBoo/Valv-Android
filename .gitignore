@@ -18,3 +18,6 @@
 local.properties
 /app/release/
 /.idea/deploymentTargetDropDown.xml
+
+# Local signing keystore and generated APKs (do not commit)
+dist/

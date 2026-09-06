@@ -38,8 +38,10 @@ android {
             val variant = this
             variant.outputs.map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
                 .forEach { output ->
+                    val abi = output.getFilter(com.android.build.OutputFile.ABI)
+                    val abiPart = if (abi != null) "_$abi" else ""
                     val outputFileName =
-                        "Vault_${variant.versionCode}_${variant.versionName}_${variant.buildType.name}.apk"
+                        "Vault_${variant.versionCode}_${variant.versionName}${abiPart}_${variant.buildType.name}.apk"
                     output.outputFileName = outputFileName
                 }
         }
@@ -47,6 +49,14 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = false
+        }
     }
     buildFeatures {
         viewBinding = true
